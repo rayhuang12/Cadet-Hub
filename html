@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title> HUB</title>
+  <style>
+    :root{
+      --bg:#0b0e13; --panel:#000000; --muted:#9aa4b2; --text:#e7edf7; --accent:#081863; --accent-2:#7ee787; --danger:#ff6b6b;
+      --radius:18px; --pad:30px; --gap:14px; --btn-h:68px; --maxw:880px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:#7a1a28;color:var(--text);font:16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji"}
+    .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:24px}
+    .app{width:100%;max-width:var(--maxw);background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));border:4px solid #1f2635;border-radius:24px;box-shadow:0 20px 60px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.05);}
+    header{padding:22px var(--pad) 8px;border-bottom:1px solid #1f2635}
+    header h1{margin:0 0 4px;font-size:22px;letter-spacing:.3px}
+    header p{margin:0;color:var(--muted);font-size:14px}
+
+    main{padding:22px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:var(--gap)}
+    .btn{height:var(--btn-h);display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 var(--pad);border-radius:var(--radius);border:4px solid #223049;background:#0f1420;color:var(--text);text-decoration:none;font-weight:600;letter-spacing:.2px;box-shadow:inset 0 1px 0 rgba(255,255,255,.04), 0 6px 20px rgba(0,0,0,.25);}
+    .btn:hover{border-color:#000000;transform:translateY(-1px);transition:.12s ease}
+    .btn small{color:var(--muted);font-weight:500}
+    .accent{outline:2px solid rgba(106,166,255,.18)}
+
+    .section-title{margin:6px 2px 14px;color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.14em}
+
+    .back{margin-top:20px;display:flex;justify-content:center}
+    .back button{height:48px;min-width:220px;border-radius:999px;border:4px solid #000000;background:#000000;color:var(--text);font-weight:650;cursor:pointer}
+    .back button:hover{background:#7a1a28}
+
+    /* Modal */
+    .modal{position:fixed;inset:0;background:rgba(8,11,17,.6);display:none;align-items:center;justify-content:center;padding:24px}
+    .modal.open{display:flex}
+    .sheet{width:100%;max-width:420px;background:#0f1522;border:1px solid #243250;border-radius:18px;padding:18px;box-shadow:0 18px 60px rgba(0,0,0,.5)}
+    .sheet h2{margin:6px 0 8px;font-size:18px}
+    .sheet p{margin:0 0 12px;color:var(--muted)}
+    .row{display:flex;gap:10px}
+    input[type=password]{flex:1;height:44px;border-radius:12px;border:1px solid #2a3a5a;background:#0b1220;color:var(--text);padding:0 12px}
+    .primary{height:44px;padding:0 14px;border-radius:12px;border:1px solid #3558a5;background:linear-gradient(180deg,#2b63c3,#1a3e7a);color:white;font-weight:700;cursor:pointer}
+    .link{background:transparent;border:none;color:var(--muted);text-decoration:underline;cursor:pointer}
+    .error{color:var(--danger);font-size:13px;margin-top:8px;min-height:18px}
+
+    footer{padding:10px var(--pad) 18px;color:#708095;font-size:12px;border-top:1px solid #1f2635}
+    .kbd{display:inline-block;border:1px solid #2a3a5a;border-bottom-width:2px;background:#0d1424;padding:0 .45em;border-radius:6px;font-size:.92em}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="app" role="application" aria-label="Cadet quick launcher">
+      <header>
+        <h1>Cadet Quick Launcher</h1>
+        <p>you can use <span class="kbd">←</span>/<span class="kbd">→</span> or <span class="kbd">Backspace</span> to navigate.</p>
+      </header>
+      <main id="view" tabindex="-1"></main>
+      <footer>
+        <span id="crumbs"></span>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Passcode Modal -->
+  <div id="passcodeModal" class="modal" aria-hidden="true" aria-labelledby="pcTitle" role="dialog">
+    <div class="sheet" role="document">
+      <h2 id="pcTitle">Enter Group Staff Passcode</h2>
+      <p>This gate is client-side only—do not use for sensitive data. (Use SharePoint permissions for real security.)</p>
+      <div class="row">
+        <input id="pcInput" type="password" inputmode="numeric" placeholder="Passcode" aria-label="Passcode" />
+        <button class="primary" id="pcSubmit">Unlock</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="link" id="pcCancel">Cancel</button>
+      </div>
+      <div class="error" id="pcError" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <script>
+    // ---------- CONFIG ----------
+    const CONFIG = {
+      links: {
+        A1: "https://umass.sharepoint.com/:f:/r/sites/370CGAFROTCDET370/Shared%20Documents/General/2-1%20A1%20Manpower,%20Personnel,%20and%20Services?csf=1&web=1&e=bBNjhY",
+        A2: "https://umass.sharepoint.com/:f:/r/sites/370CGAFROTCDET370/Shared%20Documents/General/2-2%20A2%20Intelligence?csf=1&web=1&e=YGmVqU",
+        A3: "https://umass.sharepoint.com/:f:/r/sites/370CGAFROTCDET370/Shared%20Documents/General/2-3%20A3%20Operations?csf=1&web=1&e=QjN0dG",
+        A4: "https://umass.sharepoint.com/:f:/r/sites/370CGAFROTCDET370/Shared%20Documents/General/2-4%20A4%20Logistics%20and%20Engineering?csf=1&web=1&e=KVraTk",
+        A5: "https://umass.sharepoint.com/:f:/r/sites/370CGAFROTCDET370/Shared%20Documents/General/2-4%20A4%20Logistics%20and%20Engineering?csf=1&web=1&e=KVraTk",
+        A6: "https://umass.sharepoint.com/:f:/r/sites/370CGAFROTCDET370/Shared%20Documents/General/2-6%20A6%20Communication?csf=1&web=1&e=MEWyPp",
+        POC_ALL: "https://umass.sharepoint.com/:f:/r/sites/370CGAFROTCDET370/Shared%20Documents/General/%5BRESTRICTED%5D%20POC%20ALL%20MATERIALS?csf=1&web=1&e=iCZ9ak",
+        GROUP_STAFF: "https://umass.sharepoint.com/:f:/r/sites/370CGAFROTCDET370/Shared%20Documents/General/%5BRESTRICTED%5D%20GROUP%20STAFF%20MATERIALS?csf=1&web=1&e=xA5OeQ",
+
+        // --- POC ALL sub-sections (add your deep links here) ---
+        POC_20_RECALL: "https://umass.sharepoint.com/:f:/r/sites/370CGAFROTCDET370/Shared%20Documents/General/%5BRESTRICTED%5D%20POC%20ALL%20MATERIALS/2-0%20Recall,%20Attendance,%20%26%20SOBs?csf=1&web=1&e=aI93oc,          // 2-0 Recall, Attendance, & SOBs => add SharePoint deep link",
+        POC_30_CC_CD: "https://umass.sharepoint.com/:f:/r/sites/370CGAFROTCDET370/Shared%20Documents/General/%5BRESTRICTED%5D%20POC%20ALL%20MATERIALS/3-0%20CC%20%26%20CD?csf=1&web=1&e=V28DLK",           // 3-0 CC & CD
+        POC_31_COS_DCOS: "https://umass.sharepoint.com/:f:/r/sites/370CGAFROTCDET370/Shared%20Documents/General/%5BRESTRICTED%5D%20POC%20ALL%20MATERIALS/3-1%20COS%20%26%20DCOS?csf=1&web=1&e=wCeedN",        // 3-1 COS & DCOS
+        POC_32_IG: "https://umass.sharepoint.com/:f:/r/sites/370CGAFROTCDET370/Shared%20Documents/General/%5BRESTRICTED%5D%20POC%20ALL%20MATERIALS/3-2%20IG?csf=1&web=1&e=TMnLbV",              
+        POC_33_BCLO_BCLD: "https://umass.sharepoint.com/:f:/r/sites/370CGAFROTCDET370/Shared%20Documents/General/%5BRESTRICTED%5D%20POC%20ALL%20MATERIALS/3-3%20BCLO%20%26%20BCLD?csf=1&web=1&e=lKRaWO",       
+        POC_40_LLAB_PLANS: "https://umass.sharepoint.com/:f:/r/sites/370CGAFROTCDET370/Shared%20Documents/General/%5BRESTRICTED%5D%20POC%20ALL%20MATERIALS/4-0%20LLAB%20Plans?csf=1&web=1&e=Kfbv7Y",      
+        // POC_41_PRE_PTA_CONOPS: "",  
+        // POC_50_AARS: ""             
+      },
+      passcode: "D3T370@@",
+      titleMap: {
+        home: "Home",
+        directorate: "Directorate",
+        general: "General / POC ALL",
+        aSeries: "Directorate – A1–A6",
+        pocAll: "POC ALL",
+        groupStaff: "Group Staff"
+      }
+    };
+
+    // Single source of truth for the POC section tiles
+    const POC_SECTIONS = [
+      { label: "2-0 Recall, Attendance, & SOBs", key: "POC_20_RECALL" },
+      { label: "3-0 CC & CD", key: "POC_30_CC_CD" },
+      { label: "3-1 COS & DCOS", key: "POC_31_COS_DCOS" },
+      { label: "3-2 IG", key: "POC_32_IG" },
+      { label: "3-3 BCLO & BCLD", key: "POC_33_BCLO_BCLD" },
+      { label: "4-0 LLAB Plans", key: "POC_40_LLAB_PLANS" },
+      { label: "4-1 Pre-PTA CONOPs", key: "POC_41_PRE_PTA_CONOPS" },
+      { label: "5-0 AARs", key: "POC_50_AARS" }
+    ];
+
+    // ---------- TINY ROUTER ----------
+    const view = document.getElementById('view');
+    const crumbs = document.getElementById('crumbs');
+
+    const routes = {
+      "": renderHome,
+      "home": renderHome,
+      "directorate": renderDirectorate,
+      "general": renderGeneral,
+      "poc": renderPOC,          // ← clicking POC ALL now shows the section chooser
+      "group": guardGroupStaff
+    };
+
+    function setHash(h){ location.hash = '#' + h; }
+    function back(){
+      const current = (location.hash||'#home').slice(1);
+      if(current === 'poc' || current === 'group'){ setHash('general'); return; }
+      if(current === 'directorate'){ setHash('home'); return; }
+      if(current === 'general'){ setHash('home'); return; }
+      setHash('home');
+    }
+
+    window.addEventListener('hashchange', go);
+    window.addEventListener('keydown', (e)=>{
+      if(e.key === 'Backspace'){ e.preventDefault(); back(); }
+      if(e.key === 'ArrowLeft'){ back(); }
+    });
+
+    function go(){
+      const h = (location.hash||'#home').slice(1);
+      const key = h.split('?')[0];
+      (routes[key]||renderHome)();
+      view.focus({preventScroll:true});
+    }
+
+    function setBreadcrumb(text){
+      crumbs.textContent = 'You are here: ' + text;
+    }
+
+    // ---------- VIEWS ----------
+    function renderHome(){
+      setBreadcrumb(CONFIG.titleMap.home);
+      view.innerHTML = `
+        <div class="section-title">Start</div>
+        <div class="grid" role="menu">
+          <a class="btn accent" role="menuitem" href="#directorate">
+            <span>DIRECTORATE</span>
+
+          </a>
+          <a class="btn" role="menuitem" href="#general">
+            <span>GENERAL / POC ALL</span>
+          </a>
+        </div>`;
+    }
+
+    function renderDirectorate(){
+      setBreadcrumb(CONFIG.titleMap.aSeries);
+      view.innerHTML = `
+        <div class="section-title">Directorate</div>
+        <div class="grid">
+          ${['A1','A2','A3','A4','A5','A6'].map(a=>buttonLink(a, CONFIG.links[a])).join('')}
+        </div>
+        ${backBar()}`;
+      wireLinks();
+    }
+
+    function renderGeneral(){
+      setBreadcrumb(CONFIG.titleMap.general);
+      view.innerHTML = `
+        <div class="section-title">General</div>
+        <div class="grid">
+          ${buttonLink('POC ALL', null, '#poc')}
+          ${buttonLink('Group Staff', null, '#group')}
+        </div>
+        ${backBar()}`;
+      wireLinks();
+    }
+
+    function renderPOC(){
+      setBreadcrumb(CONFIG.titleMap.pocAll);
+      const tiles = POC_SECTIONS.map(({label,key}) => {
+        const url = CONFIG.links[key] || CONFIG.links.POC_ALL; // fallback to the parent folder if deep link is unknown
+        return buttonLink(label, url);
+      }).join('');
+
+      view.innerHTML = `
+        <div class="section-title">POC ALL</div>
+        <div class="grid">
+          ${tiles}
+          ${buttonLink('Open POC ALL (root)', CONFIG.links.POC_ALL)}
+        </div>
+        ${backBar()}`;
+      wireLinks();
+    }
+
+    function guardGroupStaff(){
+      if(sessionStorage.getItem('gsUnlocked') === '1') return renderGroupStaff();
+      openPasscode(() => {
+        renderGroupStaff();
+        sessionStorage.setItem('gsUnlocked','1');
+      });
+    }
+
+    function renderGroupStaff(){
+      setBreadcrumb(CONFIG.titleMap.groupStaff);
+      view.innerHTML = `
+        <div class="section-title">Group Staff</div>
+        <div class="grid">
+          ${buttonLink('Open Group Staff', CONFIG.links.GROUP_STAFF)}
+        </div>
+        ${backBar()}`;
+      wireLinks();
+    }
+
+    // ---------- UI helpers ----------
+    function buttonLink(label, href, hashHref){
+      const to = href || hashHref || '#home';
+      const isExternal = /^https?:/i.test(to);
+      const attrs = isExternal ? `href="${to}" target="_blank" rel="noopener noreferrer"` : `href="${to}"`;
+      return `<a class="btn" ${attrs}><span>${label}</span><small></small></a>`;
+    }
+
+    function backBar(){
+      return `<div class="back"><button id="goBack" aria-label="Go back">Back</button></div>`;
+    }
+
+    function wireLinks(){
+      const backBtn = document.getElementById('goBack');
+      if(backBtn) backBtn.addEventListener('click', back);
+      const firstTile = view.querySelector('.btn');
+      if(firstTile) firstTile.focus();
+    }
+
+    // ---------- Passcode modal ----------
+    const modal = document.getElementById('passcodeModal');
+    const pcInput = document.getElementById('pcInput');
+    const pcSubmit = document.getElementById('pcSubmit');
+    const pcCancel = document.getElementById('pcCancel');
+    const pcError = document.getElementById('pcError');
+
+    function openPasscode(onSuccess){
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden','false');
+      pcInput.value=''; pcError.textContent='';
+      setTimeout(()=>pcInput.focus(), 50);
+
+      function cleanup(){
+        modal.classList.remove('open');
+        modal.setAttribute('aria-hidden','true');
+        pcSubmit.removeEventListener('click', submit);
+        pcCancel.removeEventListener('click', cancel);
+        modal.removeEventListener('keydown', trap);
+      }
+      function submit(){
+        if(pcInput.value === CONFIG.passcode){ cleanup(); onSuccess(); }
+        else { pcError.textContent = 'Incorrect passcode. Try again.'; pcInput.select(); }
+      }
+      function cancel(){ cleanup(); back(); }
+      function trap(e){ if(e.key==='Escape'){ cancel(); } if(e.key==='Enter'){ submit(); } }
+
+      pcSubmit.addEventListener('click', submit);
+      pcCancel.addEventListener('click', cancel);
+      modal.addEventListener('keydown', trap);
+    }
+
+    // ---------- Boot ----------
+    go();
+  </script>
+</body>
+</html>
